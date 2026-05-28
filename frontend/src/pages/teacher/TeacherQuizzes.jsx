@@ -7,6 +7,10 @@ const TeacherQuizzes = () => {
   const [quizzes, setQuizzes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [showResultsModal, setShowResultsModal] = useState(false);
+  const [selectedQuizResults, setSelectedQuizResults] = useState([]);
+  const [isLoadingResults, setIsLoadingResults] = useState(false);
+  const [selectedQuizTitle, setSelectedQuizTitle] = useState('');
   const [formData, setFormData] = useState({ title: '', description: '', topic: '', time_limit_minutes: 30 });
   const [search, setSearch] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -59,6 +63,21 @@ const TeacherQuizzes = () => {
     }
   };
 
+  const handleViewResults = async (quiz) => {
+    setSelectedQuizTitle(quiz.title);
+    setShowResultsModal(true);
+    setIsLoadingResults(true);
+    try {
+      const res = await api.get(`/teacher/quizzes/${quiz.id}/results`);
+      setSelectedQuizResults(res.data.data || []);
+    } catch (err) {
+      alert('Gagal mengambil data nilai siswa.');
+      setShowResultsModal(false);
+    } finally {
+      setIsLoadingResults(false);
+    }
+  };
+
   return (
     <div className="space-y-6 animate-in fade-in zoom-in-95 duration-300">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -108,6 +127,15 @@ const TeacherQuizzes = () => {
                     {quiz.status.toUpperCase()}
                   </span>
                   <div className="flex space-x-1">
+                    {quiz.status === 'published' && (
+                      <button 
+                        onClick={() => handleViewResults(quiz)}
+                        className="p-1.5 text-gray-500 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 rounded-lg transition-colors"
+                        title="Lihat Nilai Siswa"
+                      >
+                        <Eye size={18} />
+                      </button>
+                    )}
                     <button 
                       onClick={() => navigate(`/dashboard/quizzes/${quiz.id}`)}
                       className="p-1.5 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-colors"
@@ -206,6 +234,57 @@ const TeacherQuizzes = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {showResultsModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="glass-card rounded-2xl w-full max-w-2xl p-6 shadow-2xl animate-in zoom-in-95 duration-200 max-h-[80vh] flex flex-col">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white">Nilai Siswa: {selectedQuizTitle}</h2>
+              <button
+                onClick={() => setShowResultsModal(false)}
+                className="text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 p-2 rounded-lg"
+              >
+                ✕
+              </button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto pr-2">
+              {isLoadingResults ? (
+                <div className="flex justify-center p-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+                </div>
+              ) : selectedQuizResults.length === 0 ? (
+                <div className="text-center p-8 text-gray-500">Belum ada siswa yang mengerjakan kuis ini.</div>
+              ) : (
+                <table className="w-full text-sm text-left">
+                  <thead className="text-xs text-gray-700 uppercase bg-gray-50/50 dark:bg-gray-800/50 dark:text-gray-400">
+                    <tr>
+                      <th scope="col" className="px-4 py-3 rounded-tl-lg">Nama Siswa</th>
+                      <th scope="col" className="px-4 py-3 text-center">Nilai Akhir</th>
+                      <th scope="col" className="px-4 py-3 text-center rounded-tr-lg">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {selectedQuizResults.map((result, idx) => (
+                      <tr key={idx} className="bg-white/40 dark:bg-gray-800/40 hover:bg-white/60 dark:hover:bg-gray-800/60 border-b border-gray-100 dark:border-gray-700/50">
+                        <td className="px-4 py-3 font-medium text-gray-900 dark:text-white">{result.student_name}</td>
+                        <td className="px-4 py-3 text-center font-bold">{Math.round(result.score * 10) / 10}</td>
+                        <td className="px-4 py-3 text-center">
+                          {result.is_remedial ? (
+                            <span className="bg-amber-100 text-amber-800 text-xs font-medium px-2.5 py-0.5 rounded-full dark:bg-amber-900 dark:text-amber-300">Remedial</span>
+                          ) : (
+                            <span className="bg-emerald-100 text-emerald-800 text-xs font-medium px-2.5 py-0.5 rounded-full dark:bg-emerald-900 dark:text-emerald-300">Pertama</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
           </div>
         </div>
       )}

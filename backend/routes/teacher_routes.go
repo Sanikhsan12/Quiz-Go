@@ -16,9 +16,11 @@ func SetupTeacherRoutes(r *gin.Engine) {
 	// Middleware to check if teacher is approved could be added here
 	
 	{
+		teacherGroup.GET("/stats", controllers.GetTeacherStats)
 		teacherGroup.GET("/quizzes", controllers.GetTeacherQuizzes)
 		teacherGroup.POST("/quizzes", controllers.CreateQuiz)
 		teacherGroup.GET("/quizzes/:quizId", controllers.GetQuizDetail)
+		teacherGroup.GET("/quizzes/:quizId/results", controllers.GetQuizResultsOverview)
 		teacherGroup.PUT("/quizzes/:quizId", controllers.UpdateQuiz)
 		teacherGroup.PATCH("/quizzes/:quizId/publish", controllers.PublishQuiz)
 		teacherGroup.PATCH("/quizzes/:quizId/unpublish", controllers.UnpublishQuiz)

@@ -7,6 +7,7 @@ import (
 	"quizgo-backend/models"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 func GetUsers(c *gin.Context) {
@@ -59,6 +60,50 @@ func ApproveTeacher(c *gin.Context) {
 			"name": user.Name,
 			"is_approved": user.IsApproved,
 			"updated_at": user.UpdatedAt,
+		},
+	})
+}
+
+func GetAdminStats(c *gin.Context) {
+	var totalUsers int64
+	config.DB.Model(&models.User{}).Where("role = 'student'").Count(&totalUsers)
+
+	var totalTeachers int64
+	config.DB.Model(&models.User{}).Where("role = 'teacher'").Count(&totalTeachers)
+
+	var totalQuizzes int64
+	config.DB.Model(&models.Quiz{}).Count(&totalQuizzes)
+
+	type TeacherStat struct {
+		TeacherID    uuid.UUID `json:"teacher_id"`
+		TeacherName  string    `json:"teacher_name"`
+		TotalQuizzes int       `json:"total_quizzes"`
+		AverageScore float64   `json:"average_score"`
+	}
+
+	var teacherStats []TeacherStat
+	
+	config.DB.Raw(`
+		SELECT 
+			u.id as teacher_id, 
+			u.name as teacher_name, 
+			COUNT(DISTINCT q.id) as total_quizzes,
+			COALESCE(AVG(qr.score_percentage), 0) as average_score
+		FROM users u
+		LEFT JOIN quizzes q ON q.teacher_id = u.id
+		LEFT JOIN quiz_results qr ON qr.quiz_id = q.id
+		WHERE u.role = 'teacher'
+		GROUP BY u.id, u.name
+		ORDER BY total_quizzes DESC, average_score DESC
+	`).Scan(&teacherStats)
+
+	c.JSON(http.StatusOK, gin.H{
+		"status": "success",
+		"data": gin.H{
+			"total_students": totalUsers,
+			"total_teachers": totalTeachers,
+			"total_quizzes":  totalQuizzes,
+			"teacher_stats":  teacherStats,
 		},
 	})
 }

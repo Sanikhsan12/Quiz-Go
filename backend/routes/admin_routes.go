@@ -14,6 +14,7 @@ func SetupAdminRoutes(r *gin.Engine) {
 	adminGroup.Use(middlewares.AuthMiddleware())
 	adminGroup.Use(middlewares.RoleMiddleware("admin"))
 	{
+		adminGroup.GET("/stats", controllers.GetAdminStats)
 		adminGroup.GET("/users", controllers.GetUsers)
 		adminGroup.PATCH("/teachers/:teacherId/approve", controllers.ApproveTeacher)
 	}

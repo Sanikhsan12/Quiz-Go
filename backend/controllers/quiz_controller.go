@@ -157,3 +157,80 @@ func DeleteQuiz(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"status": "success", "message": "Kuis berhasil dihapus."})
 }
+
+func GetTeacherStats(c *gin.Context) {
+	teacherID, _ := c.Get("userID")
+
+	var totalQuizzes int64
+	config.DB.Model(&models.Quiz{}).Where("teacher_id = ?", teacherID).Count(&totalQuizzes)
+
+	var stats struct {
+		TotalSessions int64
+		TotalRemedial int64
+		AverageScore  float64
+	}
+
+	// Calculate total sessions, remedials, and average score
+	config.DB.Table("quiz_results").
+		Select("COUNT(quiz_results.id) as total_sessions, SUM(CASE WHEN quiz_results.is_remedial = true THEN 1 ELSE 0 END) as total_remedial, COALESCE(AVG(quiz_results.score_percentage), 0) as average_score").
+		Joins("JOIN quizzes ON quiz_results.quiz_id = quizzes.id").
+		Where("quizzes.teacher_id = ?", teacherID).
+		Scan(&stats)
+
+	c.JSON(http.StatusOK, gin.H{
+		"status": "success",
+		"data": gin.H{
+			"total_quizzes":   totalQuizzes,
+			"total_sessions":  stats.TotalSessions,
+			"total_remedial":  stats.TotalRemedial,
+			"average_score":   stats.AverageScore,
+		},
+	})
+}
+
+func GetQuizResultsOverview(c *gin.Context) {
+	quizID := c.Param("quizId")
+	teacherID, _ := c.Get("userID")
+
+	// Ensure the quiz belongs to the teacher
+	var quiz models.Quiz
+	if err := config.DB.First(&quiz, "id = ? AND teacher_id = ?", quizID, teacherID).Error; err != nil {
+		c.JSON(http.StatusForbidden, gin.H{"status": "error", "message": "Kuis tidak ditemukan atau bukan milik Anda"})
+		return
+	}
+
+	type StudentResult struct {
+		StudentID     uuid.UUID `json:"student_id"`
+		StudentName   string    `json:"student_name"`
+		Score         float64   `json:"score"`
+		AttemptNumber int       `json:"attempt_number"`
+		IsRemedial    bool      `json:"is_remedial"`
+	}
+
+	var results []StudentResult
+
+	// Use DISTINCT ON (student_id) to get only the latest attempt for each student
+	query := `
+		SELECT DISTINCT ON (qs.student_id)
+			u.id as student_id,
+			u.name as student_name,
+			COALESCE(qr.score_percentage, 0) as score,
+			qs.attempt_number as attempt_number,
+			CASE WHEN qs.attempt_number > 1 THEN true ELSE false END as is_remedial
+		FROM quiz_sessions qs
+		JOIN users u ON qs.student_id = u.id
+		LEFT JOIN quiz_results qr ON qs.id = qr.session_id
+		WHERE qs.quiz_id = ? AND qs.status = 'submitted'
+		ORDER BY qs.student_id, qs.attempt_number DESC
+	`
+
+	if err := config.DB.Raw(query, quizID).Scan(&results).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": "Gagal mengambil data nilai"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"status": "success",
+		"data": results,
+	})
+}
