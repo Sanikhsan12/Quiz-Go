@@ -6,6 +6,7 @@ import (
 
 	"quizgo-backend/config"
 	"quizgo-backend/routes"
+
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
@@ -40,7 +41,7 @@ func main() {
 	routes.SetupTeacherRoutes(r)
 	routes.SetupStudentRoutes(r)
 
-	port := os.Getenv("PORT")
+	port := os.Getenv("APP_PORT")
 	if port == "" {
 		port = "8080"
 	}
