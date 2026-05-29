@@ -3,7 +3,7 @@ kind: Ingress
 metadata:
   name: quizgo-ingress
 spec:
-  ingressClassName: webapprouting.nginx
+  ingressClassName: webapprouting.kubernetes.azure.com
   rules:
     - http:
         paths:
