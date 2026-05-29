@@ -64,5 +64,4 @@ logs/
 # Non public folder
 perencanaan/
 revisian/
-k8s/
 nonpublic/
