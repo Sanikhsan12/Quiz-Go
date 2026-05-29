@@ -25,6 +25,8 @@ spec:
               value: password123
             - name: POSTGRES_DB
               value: quizgodb
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
           resources:
             requests:
               cpu: "100m"
@@ -35,6 +37,7 @@ spec:
           volumeMounts:
             - name: postgres-storage
               mountPath: /var/lib/postgresql/data
+              subPath: pgdata
   volumeClaimTemplates:
     - metadata:
         name: postgres-storage
