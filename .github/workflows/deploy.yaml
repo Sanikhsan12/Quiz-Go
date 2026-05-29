@@ -1,0 +1,64 @@
+name: Build and Deploy to AKS Manual
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      # Login ke Azure Container Registry menggunakan Docker Engine internal GitHub
+      - name: Login to Azure Container Registry (ACR)
+        uses: docker/login-action@v2
+        with:
+          registry: quizgoregistry.azurecr.io
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
+
+      # Build dan Push Image Backend ke Azure Container Registry (quizgoregistry)
+      - name: Build and Push Backend Image
+        uses: docker/build-push-action@v4
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          push: true
+          tags: quizgoregistry.azurecr.io/quizgo-backend:v1
+
+      # Build dan Push Image Frontend ke Azure Container Registry (quizgoregistry)
+      - name: Build and Push Frontend Image
+        uses: docker/build-push-action@v4
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          push: true
+          tags: quizgoregistry.azurecr.io/quizgo-frontend:v1
+
+      # Koneksikan terminal runner ke klaster AKS Manual (quizgo-aks)
+      - name: Set Kubernetes Context
+        uses: azure/k8s-set-context@v3
+        with:
+          method: kubeconfig
+          kubeconfig: ${{ secrets.KUBE_CONFIG }}
+
+      - name: Deploy All Manifests from Local k8s Folder
+        run: |
+          kubectl apply -f k8s/backend-config.yaml
+          kubectl apply -f k8s/redis-deployment.yaml
+          kubectl apply -f k8s/redis-service.yaml
+          kubectl apply -f k8s/postgres-service.yaml
+          kubectl apply -f k8s/postgres-statefulset.yaml
+          kubectl apply -f k8s/backend-service.yaml
+          kubectl apply -f k8s/backend-deployment.yaml
+          kubectl apply -f k8s/frontend-service.yaml
+          kubectl apply -f k8s/frontend-deployment.yaml
+          kubectl apply -f k8s/backend-hpa.yaml
+          kubectl apply -f k8s/frontend-hpa.yaml
+          kubectl apply -f k8s/quizgo-ingress.yaml
